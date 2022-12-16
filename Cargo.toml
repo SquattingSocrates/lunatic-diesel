@@ -1,9 +1,8 @@
 [package]
+description = "Diesel ORM bindings for lunatic"
 edition = "2021"
 name = "lunatic-sql"
 version = "0.1.0"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 bigdecimal = ">=0.0.13, < 0.4.0"
@@ -15,3 +14,8 @@ lunatic-sqlite-api = {path = "../lunatic/crates/lunatic-sqlite-api"}
 dotenvy = "0.15"
 lunatic = "0.12.0"
 lunatic-sql = {path = "./"}
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+targets = ["wasm32-wasi"]
