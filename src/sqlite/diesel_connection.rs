@@ -17,7 +17,6 @@ use super::{
     diesel_backend::Sqlite,
     host_bindings,
     stmt::{Statement, StatementUse},
-    // stmt::{Statement, StatementUse},
 };
 
 pub(crate) struct RawConnection {
@@ -187,7 +186,6 @@ fn last_error(connection_id: u64) -> Error {
 /// # }
 /// ```
 #[allow(missing_debug_implementations)]
-// #[cfg(feature = "sqlite")]
 pub struct SqliteConnection {
     // statement_cache needs to be before raw_connection
     // otherwise we will get errors about open statements before closing the
@@ -242,9 +240,7 @@ impl Connection for SqliteConnection {
         T: QueryFragment<Self::Backend> + QueryId,
     {
         let statement_use = self.prepared_query(source)?;
-        println!("[lunatic-sql] GOT PREPPED QUERY");
         statement_use.run()?;
-        println!("[lunatic-sql] RAN STATEMENT");
 
         Ok(self.raw_connection.rows_affected_by_last_query())
     }
@@ -320,7 +316,6 @@ impl<'stmt, 'query> Row<'stmt, Sqlite> for SqliteRow {
         'stmt: 'field,
         Self: RowIndex<I>,
     {
-        println!("[lunatic-sql] GETTING FIELD DATA {:?}", self.inner_row);
         if let Some(column_index) = self.idx(idx) {
             if let Some(original_column) = self.inner_row.get_column(column_index as i32) {
                 return Some(SqliteField {
@@ -354,12 +349,6 @@ impl<'stmt, 'query> RowIndex<usize> for SqliteRow {
 
 impl<'stmt, 'idx, 'query> RowIndex<&'idx str> for SqliteRow {
     fn idx(&self, field_name: &'idx str) -> Option<usize> {
-        // match &mut *self.inner.borrow_mut() {
-        //     PrivateSqliteRow::Direct(stmt) => stmt.index_for_column_name(field_name),
-        //     PrivateSqliteRow::Duplicated { column_names, .. } => column_names
-        //         .iter()
-        //         .position(|n| n.as_ref().map(|s| s as &str) == Some(field_name)),
-        // }
         self.field_names.iter().position(|s| s == field_name)
     }
 }
@@ -642,7 +631,7 @@ mod tests {
     //     assert_eq!(1, connection.statement_cache.len());
     // }
 
-    #[test]
+    #[lunatic::test]
     fn sql_literal_nodes_are_not_cached() {
         let connection = &mut SqliteConnection::establish(":memory:").unwrap();
         let query = diesel::select(sql::<Integer>("1"));

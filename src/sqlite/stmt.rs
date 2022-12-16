@@ -22,33 +22,13 @@ impl Statement {
     pub(super) fn prepare(
         raw_connection: &RawConnection,
         sql: &str,
-        is_cached: PrepareForCache,
+        _is_cached: PrepareForCache,
     ) -> QueryResult<Self> {
-        // let mut stmt = ptr::null_mut();
-        // let mut unused_portion = ptr::null();
         let (_, statement_id) = ffi::query_prepare(raw_connection.connection_id, sql);
-        // let prepare_result = unsafe {
-        //     ffi::sqlite3_prepare_v3(
-        //         raw_connection.internal_connection.as_ptr(),
-        //         CString::new(sql)?.as_ptr(),
-        //         sql.len() as libc::c_int,
-        //         if matches!(is_cached, PrepareForCache::Yes) {
-        //             ffi::SQLITE_PREPARE_PERSISTENT as u32
-        //         } else {
-        //             0
-        //         },
-        //         &mut stmt,
-        //         &mut unused_portion,
-        //     )
-        // };
-
-        // ensure_sqlite_ok(prepare_result, raw_connection.internal_connection.as_ptr()).map(|_| {
         Ok(Statement {
-            // inner_statement: unsafe { NonNull::new_unchecked(stmt) },
             statement_id,
             connection_id: raw_connection.connection_id,
         })
-        // })
     }
 
     // The caller of this function has to ensure that:
@@ -58,16 +38,14 @@ impl Statement {
     // prepared statement is dropped.
     unsafe fn bind(
         &mut self,
-        tpe: SqliteType,
+        _tpe: SqliteType,
         value: InternalSqliteBindValue<'_>,
         bind_index: i32,
     ) -> QueryResult<Option<NonNull<[u8]>>> {
-        println!("GOING TO CALL FFI BIND");
-        let result = ffi::bind_value(
+        let _result = ffi::bind_value(
             self.statement_id,
             InternalSqliteBindValue::to_ffi_struct(bind_index, value),
         );
-        println!("[lunatic-sql] RESULT OF BIND");
         // match ensure_sqlite_ok(result, self.raw_connection()) {
         //     Ok(()) => Ok(ret_ptr),
         //     Err(e) => {
@@ -85,18 +63,6 @@ impl Statement {
 
     fn reset(&mut self) {
         ffi::sqlite3_reset(self.statement_id);
-    }
-
-    // fn raw_connection(&self) -> *mut ffi::sqlite3 {
-    //     unsafe { ffi::sqlite3_db_handle(self.inner_statement.as_ptr()) }
-    // }
-}
-
-pub(super) fn ensure_sqlite_ok(code: u32, connection_id: u64) -> QueryResult<()> {
-    if code == ffi::SQLITE_OK {
-        Ok(())
-    } else {
-        Err(last_error(connection_id))
     }
 }
 
@@ -117,20 +83,11 @@ fn last_error(connection_id: u64) -> Error {
     )
 }
 
-// fn last_error_message(conn: *mut ffi::sqlite3) -> String {
-//     let c_str = unsafe { CStr::from_ptr(ffi::sqlite3_errmsg(conn)) };
-//     c_str.to_string_lossy().into_owned()
-// }
-
-// fn last_error_code(conn: *mut ffi::sqlite3) -> libc::c_int {
-//     unsafe { ffi::sqlite3_extended_errcode(conn) }
-// }
-
 impl Drop for Statement {
     fn drop(&mut self) {
         // use std::thread::panicking;
 
-        let finalize_result = unsafe { ffi::sqlite3_finalize(self.statement_id) };
+        ffi::sqlite3_finalize(self.statement_id);
         // if let Err(e) = ensure_sqlite_ok(finalize_result, raw_connection) {
         //     // if panicking() {
         //     //     write!(
@@ -192,8 +149,6 @@ impl<'stmt, 'query> BoundStatement<'stmt, 'query> {
             query: None,
             binds_to_free: Vec::new(),
         };
-
-        println!("GOING TO BIND BUFFERS");
 
         ret.bind_buffers(binds)?;
 
@@ -258,11 +213,8 @@ impl<'stmt, 'query> Drop for BoundStatement<'stmt, 'query> {
         // First reset the statement, otherwise the bind calls
         // below will fails
         self.statement.reset();
-        println!("[lunatic-sql] successfully reset statement");
 
-        println!("[lunatic-sql] binds to free {:?}", self.binds_to_free);
-
-        for (idx, buffer) in std::mem::take(&mut self.binds_to_free) {
+        for (_idx, buffer) in std::mem::take(&mut self.binds_to_free) {
             // unsafe {
             //     // It's always safe to bind null values, as there is no buffer that needs to outlife something
             //     self.statement
@@ -331,81 +283,44 @@ impl<'stmt, 'query> StatementUse<'stmt, 'query> {
     // It's always safe to call this function with `first_step = true` as this removes
     // the cached column names
     pub(super) unsafe fn step(&mut self, first_step: bool) -> QueryResult<bool> {
-        println!("CALLING STEP {:?}", first_step);
         let res = match ffi::sqlite3_step(self.statement.statement.statement_id) {
             ffi::SQLITE_DONE => Ok(false),
             ffi::SQLITE_ROW => Ok(true),
             _ => Err(last_error(self.statement.statement.connection_id)),
         };
-        println!("STEP RES {:?}", res);
         if first_step {
             self.column_names = vec![];
         }
         res
     }
 
-    // The returned string pointer is valid until either the prepared statement is
-    // destroyed by sqlite3_finalize() or until the statement is automatically
-    // reprepared by the first call to sqlite3_step() for a particular run or
-    // until the next call to sqlite3_column_name() or sqlite3_column_name16()
-    // on the same column.
-    //
-    // https://sqlite.org/c3ref/column_name.html
-    //
-    // Note: This function is marked as unsafe, as calling it can invalidate
-    // other existing column name pointers on the same column. To prevent that,
-    // it should maximally be called once per column at all.
-    fn column_name(&self, idx: i32) -> String {
-        let name = {
-            let column_name =
-                ffi::sqlite3_column_name(self.statement.statement.statement_id, idx as u32);
-            assert!(
-                !column_name.is_err(),
-                "The Sqlite documentation states that it only returns a \
-                 null pointer here if we are in a OOM condition."
-            );
-            column_name.unwrap()
-        };
-        // name.to_str().expect(
-        //     "The Sqlite documentation states that this is UTF8. \
-        //      If you see this error message something has gone \
-        //      horribly wrong. Please open an issue at the \
-        //      diesel repository.",
-        // ) as *const str
-        name
-    }
-
-    pub(super) fn column_count(&self) -> i32 {
-        ffi::sqlite3_column_count(self.statement.statement.statement_id) as i32
-    }
-
-    pub(super) fn index_for_column_name(&mut self, field_name: &str) -> Option<usize> {
-        (0..self.column_count())
-            .find(|idx| self.field_name(*idx) == Some(field_name))
-            .map(|v| v as usize)
-    }
-
-    pub(super) fn field_name(&mut self, idx: i32) -> Option<&str> {
-        if self.column_names.is_empty() {
-            let count = self.column_count();
-            self.column_names = (0..count)
-                .map(|idx| {
-                    // By initializing the whole vec at once we ensure that
-                    // we really call this only once.
-                    self.column_name(idx)
-                })
-                .collect::<Vec<String>>();
-        }
-
-        self.column_names.get(idx as usize).map(|c| c.as_str())
-    }
-
-    // pub(super) fn copy_value(&self, idx: i32) -> Option<OwnedSqliteValue> {
-    //     OwnedSqliteValue::copy_from_ptr(self.column_value(idx)?)
-    // }
-
-    // pub(super) fn column_value(&self, idx: i32) -> Option<NonNull<SqliteValue>> {
-    //     let ptr = unsafe { ffi::read_column(self.statement.statement.statement_id, idx as u32) };
-    //     NonNull::new(ptr.unwrap())
+    // // The returned string pointer is valid until either the prepared statement is
+    // // destroyed by sqlite3_finalize() or until the statement is automatically
+    // // reprepared by the first call to sqlite3_step() for a particular run or
+    // // until the next call to sqlite3_column_name() or sqlite3_column_name16()
+    // // on the same column.
+    // //
+    // // https://sqlite.org/c3ref/column_name.html
+    // //
+    // // Note: This function is marked as unsafe, as calling it can invalidate
+    // // other existing column name pointers on the same column. To prevent that,
+    // // it should maximally be called once per column at all.
+    // fn column_name(&self, idx: i32) -> String {
+    //     let name = {
+    //         let column_name =
+    //             ffi::sqlite3_column_name(self.statement.statement.statement_id, idx as u32);
+    //         assert!(
+    //             !column_name.is_err(),
+    //             "The Sqlite documentation states that it only returns a \
+    //              null pointer here if we are in a OOM condition."
+    //         );
+    //         column_name
+    //     };
+    //     name.expect(
+    //         "The Sqlite documentation states that this is UTF8. \
+    //          If you see this error message something has gone \
+    //          horribly wrong. Please open an issue at the \
+    //          diesel repository.",
+    //     )
     // }
 }
