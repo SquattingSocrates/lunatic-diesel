@@ -1,9 +1,9 @@
 mod bind_collector;
 mod diesel_backend;
 mod diesel_connection;
-mod host_bindings;
-// mod statement_iterator;
 mod expression;
+mod functions;
+mod host_bindings;
 mod query_builder;
 mod stmt;
 mod types;

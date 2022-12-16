@@ -43,6 +43,44 @@ impl RawConnection {
             lunatic_sqlite_api::sqlite_guest_bindings::sqlite3_changes(self.connection_id) as usize
         }
     }
+
+    // TODO: in order for this to work there needs to be a proper way of sending functions to the host
+    // which could be done by sending a wasm functions name, so that the callback stored by the sqlite
+    // instance in the host will actually point to a host function which calls the provided guest function.
+    // However, this will require quite a bit of engineering and since it doesn't have a high priority at
+    // the moment we'll keep the functionality out for now.
+    //
+    // pub(super) fn register_collation_function<F>(
+    //     &self,
+    //     collation_name: &str,
+    //     collation: F,
+    // ) -> QueryResult<()>
+    // where
+    //     F: Fn(&str, &str) -> std::cmp::Ordering + std::panic::UnwindSafe + Send + 'static,
+    // {
+    //     let callback_fn = Box::into_raw(Box::new(CollationUserPtr {
+    //         callback: collation,
+    //         collation_name: collation_name.to_owned(),
+    //     }));
+    //     let collation_name = Self::get_fn_name(collation_name)?;
+
+    //     let result = unsafe {
+    //         ffi::sqlite3_create_collation_v2(
+    //             self.internal_connection.as_ptr(),
+    //             collation_name.as_ptr(),
+    //             ffi::SQLITE_UTF8,
+    //             callback_fn as *mut _,
+    //             Some(run_collation_function::<F>),
+    //             Some(destroy_boxed::<CollationUserPtr<F>>),
+    //         )
+    //     };
+
+    //     let result = Self::process_sql_function_result(result);
+    //     if result.is_err() {
+    //         destroy_boxed::<CollationUserPtr<F>>(callback_fn as *mut _);
+    //     }
+    //     result
+    // }
 }
 
 fn last_error(connection_id: u64) -> Error {
@@ -73,34 +111,6 @@ fn last_error(connection_id: u64) -> Error {
         Box::new("unknown error code".to_string()),
     )
 }
-
-// mod bind_collector;
-// mod functions;
-// mod raw;
-// mod row;
-// mod sqlite_value;
-// mod statement_iterator;
-// mod stmt;
-
-// pub(in crate::sqlite) use self::bind_collector::SqliteBindCollector;
-// pub use self::bind_collector::SqliteBindValue;
-// pub use self::sqlite_value::SqliteValue;
-
-// use std::os::raw as libc;
-
-// use self::raw::RawConnection;
-// use self::statement_iterator::*;
-// use self::stmt::{Statement, StatementUse};
-// use super::SqliteAggregateFunction;
-// use crate::connection::statement_cache::StatementCache;
-// use crate::connection::*;
-// use crate::deserialize::{FromSqlRow, StaticallySizedRow};
-// use crate::expression::QueryMetadata;
-// use crate::query_builder::*;
-// use crate::result::*;
-// use crate::serialize::ToSql;
-// use crate::sql_types::HasSqlType;
-// use crate::sqlite::Sqlite;
 
 /// Connections for the SQLite backend. Unlike other backends, SQLite supported
 /// connection URLs are:
@@ -231,7 +241,7 @@ impl Connection for SqliteConnection {
             transaction_state: AnsiTransactionManager::default(),
         };
         // conn.register_diesel_sql_functions()
-        //     .map_err(CouldntSetupConfiguration)?;
+        //     .map_err(diesel::ConnectionError::CouldntSetupConfiguration)?;
         Ok(conn)
     }
 
