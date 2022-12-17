@@ -452,6 +452,56 @@ impl SqliteConnection {
         self.transaction_sql(f, "BEGIN IMMEDIATE")
     }
 
+    /// Set a custom guest allocator function for this connection
+    ///
+    /// NOTE! This feature will be mostly used for other frameworks and languages that
+    /// compile to WASM and run on lunatic vm.
+    ///
+    /// Since all the SQLite calls go through the lunatic vm (host) and wasm can only
+    /// communicate over primitive numeric values there's a need of a solution for
+    /// sending back query results without the need to temporarily store it on the host.
+    ///
+    /// The chosen approach was to call back into the guest (e.g. lunatic-sql) from the host with a request
+    /// to allocate a chunk of memory of a certain size and then write directly into
+    /// that memory from within the host.
+    ///
+    /// There should be no need for setting your own allocator if you're using
+    /// `lunatic-sql` as dependency, but you have the option to do so.
+    ///
+    /// In case you need to adjust/change the allocation function from the default
+    /// at `crate::alloc` you can define a function with the `#[no_mangle]`
+    /// like for example here:
+    ///
+    /// ```
+    /// #[no_mangle]
+    /// pub fn test_set_guest_allocator(len: u32) -> *mut u8 {
+    ///     let mut buf = Vec::with_capacity(len as usize);
+    ///     println!("CUSTOM ALLOCATOR USED for {} bytes", len);
+    ///     let ptr = buf.as_mut_ptr();
+    ///     std::mem::forget(buf);
+    ///     ptr
+    /// }
+    ///
+    /// // set the allocator function for a new connection
+    /// fn establish_connection(database_url: &str) -> SqliteConnection {
+    ///     let connection = SqliteConnection::establish(database_url)
+    ///         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
+    ///
+    ///     connection
+    ///         .set_custom_guest_allocator("test_set_guest_allocator")
+    ///         .expect("should set custom allocator");
+    ///
+    ///     connection
+    /// }
+    /// ```
+    ///
+    pub fn set_custom_guest_allocator(&mut self, allocator_function_name: &str) -> QueryResult<()> {
+        host_bindings::set_custom_guest_allocator(
+            self.raw_connection.connection_id,
+            allocator_function_name,
+        )
+    }
+
     /// Run a transaction with `BEGIN EXCLUSIVE`
     ///
     /// This method will return an error if a transaction is already open.

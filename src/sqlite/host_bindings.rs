@@ -123,3 +123,14 @@ pub fn column_names(statement_id: u64) -> QueryResult<Vec<String>> {
         })
     }
 }
+
+pub fn set_custom_guest_allocator(connection_id: u64, allocator_name: &str) -> QueryResult<()> {
+    unsafe {
+        sqlite_guest_bindings::set_custom_guest_allocator(
+            connection_id,
+            allocator_name.as_ptr() as u32,
+            allocator_name.len() as u32,
+        );
+    }
+    Ok(())
+}
