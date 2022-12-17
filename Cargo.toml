@@ -1,4 +1,5 @@
 [package]
+authors = ["Yuriy Voshchepynets <yuriy.voshchepynets@ckreator.com>"]
 description = "Diesel ORM bindings for lunatic"
 edition = "2021"
 name = "lunatic-sql"
