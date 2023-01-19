@@ -2,7 +2,7 @@ use diesel::query_builder::BindCollector;
 use diesel::serialize::{IsNull, Output};
 use diesel::sql_types::HasSqlType;
 use diesel::QueryResult;
-use lunatic_sqlite_api::{BindKey, BindPair};
+use lunatic_sqlite_api::wire_format::{BindKey, BindPair, BindValue};
 
 use super::diesel_backend::{Sqlite, SqliteType};
 
@@ -113,27 +113,17 @@ impl<'a> InternalSqliteBindValue<'a> {
         let key = BindKey::Numeric(idx as usize);
         match src {
             InternalSqliteBindValue::BorrowedString(s) => {
-                BindPair(key, lunatic_sqlite_api::BindValue::Text(s.to_owned()))
+                BindPair(key, BindValue::Text(s.to_owned()))
             }
-            InternalSqliteBindValue::String(s) => {
-                BindPair(key, lunatic_sqlite_api::BindValue::Text(s.to_string()))
-            }
+            InternalSqliteBindValue::String(s) => BindPair(key, BindValue::Text(s.to_string())),
             InternalSqliteBindValue::BorrowedBinary(blob) => {
-                BindPair(key, lunatic_sqlite_api::BindValue::Blob(blob.to_owned()))
+                BindPair(key, BindValue::Blob(blob.to_owned()))
             }
-            InternalSqliteBindValue::Binary(blob) => {
-                BindPair(key, lunatic_sqlite_api::BindValue::Blob(blob.to_vec()))
-            }
-            InternalSqliteBindValue::I32(int) => {
-                BindPair(key, lunatic_sqlite_api::BindValue::Int(int))
-            }
-            InternalSqliteBindValue::I64(int) => {
-                BindPair(key, lunatic_sqlite_api::BindValue::Int64(int))
-            }
-            InternalSqliteBindValue::F64(double) => {
-                BindPair(key, lunatic_sqlite_api::BindValue::Double(double))
-            }
-            InternalSqliteBindValue::Null => BindPair(key, lunatic_sqlite_api::BindValue::Null),
+            InternalSqliteBindValue::Binary(blob) => BindPair(key, BindValue::Blob(blob.to_vec())),
+            InternalSqliteBindValue::I32(int) => BindPair(key, BindValue::Int(int)),
+            InternalSqliteBindValue::I64(int) => BindPair(key, BindValue::Int64(int)),
+            InternalSqliteBindValue::F64(double) => BindPair(key, BindValue::Double(double)),
+            InternalSqliteBindValue::Null => BindPair(key, BindValue::Null),
         }
     }
 }

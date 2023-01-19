@@ -1,4 +1,5 @@
 use super::bind_collector::{InternalSqliteBindValue, SqliteBindCollector};
+use super::constants::*;
 use super::diesel_backend::SqliteType;
 use super::diesel_connection::RawConnection;
 // use super::bind_collector::{InternalSqliteBindValue, SqliteBindCollector};
@@ -69,12 +70,12 @@ impl Statement {
 fn last_error(connection_id: u64) -> Error {
     let sqlite_error = ffi::last_error(connection_id).unwrap();
     let error_kind = match sqlite_error.code {
-        Some(ffi::SQLITE_CONSTRAINT_UNIQUE) | Some(ffi::SQLITE_CONSTRAINT_PRIMARYKEY) => {
+        Some(SQLITE_CONSTRAINT_UNIQUE) | Some(SQLITE_CONSTRAINT_PRIMARYKEY) => {
             DatabaseErrorKind::UniqueViolation
         }
-        Some(ffi::SQLITE_CONSTRAINT_FOREIGNKEY) => DatabaseErrorKind::ForeignKeyViolation,
-        Some(ffi::SQLITE_CONSTRAINT_NOTNULL) => DatabaseErrorKind::NotNullViolation,
-        Some(ffi::SQLITE_CONSTRAINT_CHECK) => DatabaseErrorKind::CheckViolation,
+        Some(SQLITE_CONSTRAINT_FOREIGNKEY) => DatabaseErrorKind::ForeignKeyViolation,
+        Some(SQLITE_CONSTRAINT_NOTNULL) => DatabaseErrorKind::NotNullViolation,
+        Some(SQLITE_CONSTRAINT_CHECK) => DatabaseErrorKind::CheckViolation,
         _ => DatabaseErrorKind::Unknown,
     };
     DatabaseError(
@@ -284,8 +285,8 @@ impl<'stmt, 'query> StatementUse<'stmt, 'query> {
     // the cached column names
     pub(super) unsafe fn step(&mut self, first_step: bool) -> QueryResult<bool> {
         let res = match ffi::sqlite3_step(self.statement.statement.statement_id) {
-            ffi::SQLITE_DONE => Ok(false),
-            ffi::SQLITE_ROW => Ok(true),
+            SQLITE_DONE => Ok(false),
+            SQLITE_ROW => Ok(true),
             _ => Err(last_error(self.statement.statement.connection_id)),
         };
         if first_step {

@@ -8,7 +8,7 @@ use diesel::sql_types::{
     TypeMetadata,
 };
 
-use lunatic_sqlite_api::SqliteValue;
+use lunatic_sqlite_api::wire_format::SqliteValue;
 
 use super::bind_collector::SqliteBindCollector;
 use super::query_builder::SqliteQueryBuilder;

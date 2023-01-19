@@ -1,4 +1,5 @@
 mod bind_collector;
+mod constants;
 mod diesel_backend;
 mod diesel_connection;
 mod expression;

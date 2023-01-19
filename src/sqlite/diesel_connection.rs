@@ -11,9 +11,14 @@ use diesel::{
     row::{Field, PartialRow, Row, RowGatWorkaround, RowIndex},
     Connection, ConnectionResult, QueryResult,
 };
-use lunatic_sqlite_api::{SqliteError, SqliteValue};
+use lunatic::Process;
+use lunatic_sqlite_api::{
+    guest_api::sqlite_guest_bindings::sqlite3_changes,
+    wire_format::{SqliteError, SqliteValue},
+};
 
 use super::{
+    constants::*,
     diesel_backend::Sqlite,
     host_bindings,
     stmt::{Statement, StatementUse},
@@ -39,9 +44,7 @@ impl RawConnection {
     }
 
     pub(super) fn rows_affected_by_last_query(&self) -> usize {
-        unsafe {
-            lunatic_sqlite_api::sqlite_guest_bindings::sqlite3_changes(self.connection_id) as usize
-        }
+        unsafe { sqlite3_changes(self.connection_id) as usize }
     }
 
     // TODO: in order for this to work there needs to be a proper way of sending functions to the host
@@ -90,15 +93,12 @@ fn last_error(connection_id: u64) -> Error {
     }) = host_bindings::last_error(connection_id)
     {
         let error_kind = match error_code {
-            lunatic_sqlite_api::SQLITE_CONSTRAINT_UNIQUE
-            | lunatic_sqlite_api::SQLITE_CONSTRAINT_PRIMARYKEY => {
+            SQLITE_CONSTRAINT_UNIQUE | SQLITE_CONSTRAINT_PRIMARYKEY => {
                 DatabaseErrorKind::UniqueViolation
             }
-            lunatic_sqlite_api::SQLITE_CONSTRAINT_FOREIGNKEY => {
-                DatabaseErrorKind::ForeignKeyViolation
-            }
-            lunatic_sqlite_api::SQLITE_CONSTRAINT_NOTNULL => DatabaseErrorKind::NotNullViolation,
-            lunatic_sqlite_api::SQLITE_CONSTRAINT_CHECK => DatabaseErrorKind::CheckViolation,
+            SQLITE_CONSTRAINT_FOREIGNKEY => DatabaseErrorKind::ForeignKeyViolation,
+            SQLITE_CONSTRAINT_NOTNULL => DatabaseErrorKind::NotNullViolation,
+            SQLITE_CONSTRAINT_CHECK => DatabaseErrorKind::CheckViolation,
             _ => DatabaseErrorKind::Unknown,
         };
         return Error::DatabaseError(
@@ -294,7 +294,7 @@ impl<'stmt, 'query> StatementIterator<'stmt, 'query> {
 }
 
 pub struct SqliteRow {
-    pub inner_row: lunatic_sqlite_api::SqliteRow,
+    pub inner_row: lunatic_sqlite_api::wire_format::SqliteRow,
     pub statement_id: u64,
     pub field_names: Vec<String>,
 }
@@ -390,6 +390,8 @@ impl<'stmt, 'query> Iterator for StatementIterator<'stmt, 'query> {
     type Item = QueryResult<SqliteRow>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let proc_id = Process::<()>::this().id();
+        println!("[lunatic-sql {}] running next", proc_id);
         let step = unsafe { self.statement_use.step(self.is_first) };
         self.is_first = false;
         match step {
@@ -397,6 +399,8 @@ impl<'stmt, 'query> Iterator for StatementIterator<'stmt, 'query> {
             Ok(false) => None,
             Ok(true) => {
                 let statement_id = self.statement_use.statement.statement.statement_id;
+                let proc_id = Process::<()>::this().id();
+                println!("[lunatic-sql {}] trying to advance statement_id", proc_id);
                 Some(
                     host_bindings::read_row(statement_id).map(|inner_row| SqliteRow {
                         inner_row,
@@ -450,56 +454,6 @@ impl SqliteConnection {
         E: From<Error>,
     {
         self.transaction_sql(f, "BEGIN IMMEDIATE")
-    }
-
-    /// Set a custom guest allocator function for this connection
-    ///
-    /// NOTE! This feature will be mostly used for other frameworks and languages that
-    /// compile to WASM and run on lunatic vm.
-    ///
-    /// Since all the SQLite calls go through the lunatic vm (host) and wasm can only
-    /// communicate over primitive numeric values there's a need of a solution for
-    /// sending back query results without the need to temporarily store it on the host.
-    ///
-    /// The chosen approach was to call back into the guest (e.g. lunatic-sql) from the host with a request
-    /// to allocate a chunk of memory of a certain size and then write directly into
-    /// that memory from within the host.
-    ///
-    /// There should be no need for setting your own allocator if you're using
-    /// `lunatic-sql` as dependency, but you have the option to do so.
-    ///
-    /// In case you need to adjust/change the allocation function from the default
-    /// at `crate::alloc` you can define a function with the `#[no_mangle]`
-    /// like for example here:
-    ///
-    /// ```
-    /// #[no_mangle]
-    /// pub fn test_set_guest_allocator(len: u32) -> *mut u8 {
-    ///     let mut buf = Vec::with_capacity(len as usize);
-    ///     println!("CUSTOM ALLOCATOR USED for {} bytes", len);
-    ///     let ptr = buf.as_mut_ptr();
-    ///     std::mem::forget(buf);
-    ///     ptr
-    /// }
-    ///
-    /// // set the allocator function for a new connection
-    /// fn establish_connection(database_url: &str) -> SqliteConnection {
-    ///     let connection = SqliteConnection::establish(database_url)
-    ///         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url));
-    ///
-    ///     connection
-    ///         .set_custom_guest_allocator("test_set_guest_allocator")
-    ///         .expect("should set custom allocator");
-    ///
-    ///     connection
-    /// }
-    /// ```
-    ///
-    pub fn set_custom_guest_allocator(&mut self, allocator_function_name: &str) -> QueryResult<()> {
-        host_bindings::set_custom_guest_allocator(
-            self.raw_connection.connection_id,
-            allocator_function_name,
-        )
     }
 
     /// Run a transaction with `BEGIN EXCLUSIVE`

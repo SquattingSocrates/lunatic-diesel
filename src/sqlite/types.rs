@@ -9,7 +9,7 @@ use diesel::serialize::ToSql;
 use diesel::sql_types;
 use diesel::sql_types::Double;
 use diesel::sql_types::Numeric;
-use lunatic_sqlite_api::SqliteValue;
+use lunatic_sqlite_api::wire_format::SqliteValue;
 
 use super::Sqlite;
 
