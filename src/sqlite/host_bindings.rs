@@ -1,8 +1,6 @@
 use std::path::Path;
 
 use diesel::{result::Error, QueryResult};
-
-use lunatic::Process;
 pub use lunatic_sqlite_api::guest_api::*;
 use lunatic_sqlite_api::wire_format::{BindPair, SqliteError};
 pub use lunatic_sqlite_api::*;
@@ -52,12 +50,6 @@ pub fn sqlite3_reset(statement_id: u64) {
 // helper function to unwrap byte slice that was allocated during host call
 fn unroll_vec(ptr: u32, len: u32) -> Vec<u8> {
     let len = len as usize;
-    let proc_id = Process::<()>::this().id();
-    println!("[lunatic-sql {}] calling unroll_vec", proc_id);
-    println!(
-        "[lunatic-sql {}] called unroll_vec({}, {})",
-        proc_id, ptr, len
-    );
     unsafe { Vec::from_raw_parts(ptr as *mut u8, len, len) }
 }
 
@@ -81,28 +73,11 @@ pub fn sqlite3_step(statement_id: u64) -> u32 {
     unsafe { sqlite_guest_bindings::sqlite3_step(statement_id) }
 }
 
-// pub fn read_column(
-//     statement_id: u64,
-//     column_idx: u32,
-// ) -> QueryResult<lunatic_sqlite_api::SqliteValue> {
-//     unsafe {
-//         let ptr = sqlite_guest_bindings::read_column(statement_id, column_idx as u32);
-//         let encoded_column = unroll_vec(ptr);
-//         bincode::deserialize(encoded_column.as_slice())
-//             .map_err(|_| Error::DeserializationError("Failed to deserialize sqlite column".into()))
-//     }
-// }
-
 pub fn read_row(statement_id: u64) -> QueryResult<SqliteRow> {
     unsafe {
         let mut len_ptr = 0u32;
-        let proc_id = Process::<()>::this().id();
         let ptr = sqlite_guest_bindings::read_row(statement_id, &mut len_ptr);
         let encoded_row = unroll_vec(ptr, len_ptr);
-        println!(
-            "[lunatic-sql {}] READING ROW FROM VEC {:?}",
-            proc_id, encoded_row
-        );
         bincode::deserialize(encoded_row.as_slice()).map_err(|e| {
             eprintln!("Failed to deserialize sqlite row {:?}", e);
             Error::DeserializationError("Failed to deserialize sqlite row".into())
@@ -110,34 +85,11 @@ pub fn read_row(statement_id: u64) -> QueryResult<SqliteRow> {
     }
 }
 
-// pub fn sqlite3_column_name(statement_id: u64, column_idx: u32) -> QueryResult<String> {
-//     unsafe {
-//         let ptr = sqlite_guest_bindings::column_name(statement_id, column_idx as u32);
-//         let encoded_column_name = unroll_vec(ptr);
-//         bincode::deserialize(encoded_column_name.as_slice()).map_err(|_| {
-//             Error::DeserializationError("Failed to deserialize sqlite column name".into())
-//         })
-//     }
-// }
-
-// pub fn sqlite3_column_count(statement_id: u64) -> u32 {
-//     unsafe { sqlite_guest_bindings::column_count(statement_id) }
-// }
-
 pub fn column_names(statement_id: u64) -> QueryResult<Vec<String>> {
     unsafe {
         let mut len_ptr = 0u32;
         let ptr = sqlite_guest_bindings::column_names(statement_id, &mut len_ptr);
-        let proc_id = Process::<()>::this().id();
-        println!(
-            "[lunatic-sql {}] GETTING COLUMN NAMES {} | {}",
-            proc_id, len_ptr, ptr
-        );
         let encoded_column_name = unroll_vec(ptr, len_ptr);
-        println!(
-            "[lunatic-sql {}] UNROLLED COLUMN NAME {:?}",
-            proc_id, encoded_column_name
-        );
         bincode::deserialize(encoded_column_name.as_slice()).map_err(|_| {
             Error::DeserializationError("Failed to deserialize list of sqlite column names".into())
         })

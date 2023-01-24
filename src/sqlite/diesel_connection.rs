@@ -11,7 +11,6 @@ use diesel::{
     row::{Field, PartialRow, Row, RowGatWorkaround, RowIndex},
     Connection, ConnectionResult, QueryResult,
 };
-use lunatic::Process;
 use lunatic_sqlite_api::{
     guest_api::sqlite_guest_bindings::sqlite3_changes,
     wire_format::{SqliteError, SqliteValue},
@@ -390,8 +389,6 @@ impl<'stmt, 'query> Iterator for StatementIterator<'stmt, 'query> {
     type Item = QueryResult<SqliteRow>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let proc_id = Process::<()>::this().id();
-        println!("[lunatic-sql {}] running next", proc_id);
         let step = unsafe { self.statement_use.step(self.is_first) };
         self.is_first = false;
         match step {
@@ -399,8 +396,6 @@ impl<'stmt, 'query> Iterator for StatementIterator<'stmt, 'query> {
             Ok(false) => None,
             Ok(true) => {
                 let statement_id = self.statement_use.statement.statement.statement_id;
-                let proc_id = Process::<()>::this().id();
-                println!("[lunatic-sql {}] trying to advance statement_id", proc_id);
                 Some(
                     host_bindings::read_row(statement_id).map(|inner_row| SqliteRow {
                         inner_row,
@@ -634,6 +629,7 @@ mod tests {
     use diesel::dsl::sql;
     use diesel::prelude::*;
     use diesel::sql_types::Integer;
+    use lunatic::test;
 
     // #[test]
     // fn prepared_statements_are_cached_when_run() {
@@ -645,7 +641,7 @@ mod tests {
     //     assert_eq!(1, connection.statement_cache.len());
     // }
 
-    #[lunatic::test]
+    #[test]
     fn sql_literal_nodes_are_not_cached() {
         let connection = &mut SqliteConnection::establish(":memory:").unwrap();
         let query = diesel::select(sql::<Integer>("1"));
