@@ -9,7 +9,7 @@ use diesel::{
     query_builder::{Query, QueryFragment, QueryId},
     result::{DatabaseErrorKind, Error},
     row::{Field, PartialRow, Row, RowGatWorkaround, RowIndex},
-    Connection, ConnectionResult, QueryResult,
+    Connection, ConnectionError, ConnectionResult, QueryResult,
 };
 use lunatic_sqlite_api::{
     guest_api::sqlite_guest_bindings::sqlite3_changes,
@@ -35,11 +35,12 @@ impl RawConnection {
         }
     }
 
-    pub(crate) fn establish(path: &str) -> RawConnection {
+    pub(crate) fn establish(path: &str) -> ConnectionResult<RawConnection> {
         let path = Path::new(path);
-        let connection_id = host_bindings::open(path);
-
-        RawConnection { connection_id }
+        match host_bindings::open(path) {
+            Ok(connection_id) => Ok(RawConnection { connection_id }),
+            Err(e) => Err(ConnectionError::BadConnection(e.to_string())),
+        }
     }
 
     pub(super) fn rows_affected_by_last_query(&self) -> usize {
@@ -233,7 +234,7 @@ impl Connection for SqliteConnection {
     fn establish(database_url: &str) -> ConnectionResult<Self> {
         // use diesel::result::ConnectionError::CouldntSetupConfiguration;
 
-        let raw_connection = RawConnection::establish(database_url);
+        let raw_connection = RawConnection::establish(database_url)?;
         let conn = Self {
             statement_cache: StatementCache::new(),
             raw_connection,

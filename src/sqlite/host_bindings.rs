@@ -1,17 +1,30 @@
-use std::path::Path;
+use std::{
+    env,
+    path::{Component, Path, PathBuf},
+};
 
 use diesel::{result::Error, QueryResult};
+use lunatic::LunaticError;
 pub use lunatic_sqlite_api::guest_api::*;
 use lunatic_sqlite_api::wire_format::{BindPair, SqliteError};
 pub use lunatic_sqlite_api::*;
 
-pub fn open(path: &Path) -> u64 {
+pub fn open(path: &Path) -> Result<u64, LunaticError> {
     let conn_id = 0u64;
     let path_str = path.to_str().unwrap();
     unsafe {
-        sqlite_guest_bindings::open(path_str.as_ptr(), path_str.len(), &mut (conn_id as u32));
+        let status =
+            sqlite_guest_bindings::open(path_str.as_ptr(), path_str.len(), &mut (conn_id as u32));
+        // 1 means that a generic error happened
+        if status == 1 {
+            return Err(LunaticError::Error(conn_id));
+        }
+        // 2 means that permission to a resource was
+        if status == 2 {
+            return Err(LunaticError::PermissionDenied);
+        }
     }
-    conn_id
+    Ok(conn_id)
 }
 
 /// returns a tuple consisting of the length of data written to the buf

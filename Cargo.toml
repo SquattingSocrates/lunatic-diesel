@@ -9,11 +9,11 @@ version = "0.1.0"
 bigdecimal = ">=0.0.13, < 0.4.0"
 bincode = "1.3"
 diesel = {version = "2.0", features = ["i-implement-a-third-party-backend-and-opt-into-breaking-changes"]}
+lunatic = "0.12.0"
 lunatic-sqlite-api = {path = "../lunatic/crates/lunatic-sqlite-api"}
 
 [dev-dependencies]
 dotenvy = "0.15"
-lunatic = "0.12.0"
 lunatic-sql = {path = "./"}
 
 [package.metadata.docs.rs]
