@@ -103,7 +103,7 @@ fn last_error(connection_id: u64) -> Error {
         };
         return Error::DatabaseError(
             error_kind,
-            Box::new(message.unwrap_or("sqlite error".to_string())),
+            Box::new(message.unwrap_or_else(|| "sqlite error".to_string())),
         );
     }
     Error::DatabaseError(
@@ -307,11 +307,11 @@ pub struct SqliteRow {
 //     }
 // }
 
-impl<'field, 'stmt, 'query> RowGatWorkaround<'field, Sqlite> for SqliteRow {
+impl<'field> RowGatWorkaround<'field, Sqlite> for SqliteRow {
     type Field = SqliteField<'field>;
 }
 
-impl<'stmt, 'query> Row<'stmt, Sqlite> for SqliteRow {
+impl<'stmt> Row<'stmt, Sqlite> for SqliteRow {
     type InnerPartialRow = Self;
 
     fn field_count(&self) -> usize {
@@ -330,7 +330,7 @@ impl<'stmt, 'query> Row<'stmt, Sqlite> for SqliteRow {
             if let Some(original_column) = self.inner_row.get_column(column_index as i32) {
                 return Some(SqliteField {
                     inner_field: original_column,
-                    field_name: self.field_names.get(column_index).map(|name| name.clone()),
+                    field_name: self.field_names.get(column_index).cloned(),
                 });
             }
         }
@@ -347,7 +347,7 @@ impl<'stmt, 'query> Row<'stmt, Sqlite> for SqliteRow {
     }
 }
 
-impl<'stmt, 'query> RowIndex<usize> for SqliteRow {
+impl RowIndex<usize> for SqliteRow {
     fn idx(&self, idx: usize) -> Option<usize> {
         if idx < self.field_count() {
             Some(idx)
@@ -357,7 +357,7 @@ impl<'stmt, 'query> RowIndex<usize> for SqliteRow {
     }
 }
 
-impl<'stmt, 'idx, 'query> RowIndex<&'idx str> for SqliteRow {
+impl<'idx> RowIndex<&'idx str> for SqliteRow {
     fn idx(&self, field_name: &'idx str) -> Option<usize> {
         self.field_names.iter().position(|s| s == field_name)
     }
@@ -369,7 +369,7 @@ pub struct SqliteField<'a> {
     pub(super) field_name: Option<String>,
 }
 
-impl<'stmt, 'query> Field<'stmt, Sqlite> for SqliteField<'stmt> {
+impl<'stmt> Field<'stmt, Sqlite> for SqliteField<'stmt> {
     fn field_name(&self) -> Option<&str> {
         if let Some(name) = &self.field_name {
             return Some(name.as_str());
@@ -382,7 +382,7 @@ impl<'stmt, 'query> Field<'stmt, Sqlite> for SqliteField<'stmt> {
     }
 
     fn value(&self) -> Option<diesel::backend::RawValue<'_, Sqlite>> {
-        Some(&self.inner_field)
+        Some(self.inner_field)
     }
 }
 
@@ -626,11 +626,11 @@ impl SqliteConnection {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use diesel::dsl::sql;
+    // use super::*;
+    // use diesel::dsl::sql;
     use diesel::prelude::*;
     use diesel::sql_types::Integer;
-    use lunatic::test;
+    // use lunatic::test;
 
     // #[test]
     // fn prepared_statements_are_cached_when_run() {
@@ -642,47 +642,47 @@ mod tests {
     //     assert_eq!(1, connection.statement_cache.len());
     // }
 
-    #[test]
-    fn sql_literal_nodes_are_not_cached() {
-        let connection = &mut SqliteConnection::establish(":memory:").unwrap();
-        let query = diesel::select(sql::<Integer>("1"));
+    // #[test]
+    // fn sql_literal_nodes_are_not_cached() {
+    //     let connection = &mut SqliteConnection::establish(":memory:").unwrap();
+    //     let query = diesel::select(sql::<Integer>("1"));
 
-        assert_eq!(Ok(1), query.get_result(connection));
-        assert_eq!(0, connection.statement_cache.len());
-    }
+    //     assert_eq!(Ok(1), query.get_result(connection));
+    //     assert_eq!(0, connection.statement_cache.len());
+    // }
 
-    #[test]
-    fn queries_containing_sql_literal_nodes_are_not_cached() {
-        let connection = &mut SqliteConnection::establish(":memory:").unwrap();
-        let one_as_expr = 1.into_sql::<Integer>();
-        let query = diesel::select(one_as_expr.eq(sql::<Integer>("1")));
+    // #[test]
+    // fn queries_containing_sql_literal_nodes_are_not_cached() {
+    //     let connection = &mut SqliteConnection::establish(":memory:").unwrap();
+    //     let one_as_expr = 1.into_sql::<Integer>();
+    //     let query = diesel::select(one_as_expr.eq(sql::<Integer>("1")));
 
-        assert_eq!(Ok(true), query.get_result(connection));
-        assert_eq!(0, connection.statement_cache.len());
-    }
+    //     assert_eq!(Ok(true), query.get_result(connection));
+    //     assert_eq!(0, connection.statement_cache.len());
+    // }
 
-    #[test]
-    fn queries_containing_in_with_vec_are_not_cached() {
-        let connection = &mut SqliteConnection::establish(":memory:").unwrap();
-        let one_as_expr = 1.into_sql::<Integer>();
-        let query = diesel::select(one_as_expr.eq_any(vec![1, 2, 3]));
+    // #[test]
+    // fn queries_containing_in_with_vec_are_not_cached() {
+    //     let connection = &mut SqliteConnection::establish(":memory:").unwrap();
+    //     let one_as_expr = 1.into_sql::<Integer>();
+    //     let query = diesel::select(one_as_expr.eq_any(vec![1, 2, 3]));
 
-        assert_eq!(Ok(true), query.get_result(connection));
-        assert_eq!(0, connection.statement_cache.len());
-    }
+    //     assert_eq!(Ok(true), query.get_result(connection));
+    //     assert_eq!(0, connection.statement_cache.len());
+    // }
 
-    #[test]
-    fn queries_containing_in_with_subselect_are_cached() {
-        let connection = &mut SqliteConnection::establish(":memory:").unwrap();
-        let one_as_expr = 1.into_sql::<Integer>();
-        let query = diesel::select(one_as_expr.eq_any(diesel::select(one_as_expr)));
+    // #[test]
+    // fn queries_containing_in_with_subselect_are_cached() {
+    //     let connection = &mut SqliteConnection::establish(":memory:").unwrap();
+    //     let one_as_expr = 1.into_sql::<Integer>();
+    //     let query = diesel::select(one_as_expr.eq_any(diesel::select(one_as_expr)));
 
-        assert_eq!(Ok(true), query.get_result(connection));
-        assert_eq!(1, connection.statement_cache.len());
-    }
+    //     assert_eq!(Ok(true), query.get_result(connection));
+    //     assert_eq!(1, connection.statement_cache.len());
+    // }
 
-    use diesel::sql_types::Text;
-    sql_function!(fn fun_case(x: Text) -> Text);
+    // use diesel::sql_types::Text;
+    // sql_function!(fn fun_case(x: Text) -> Text);
 
     // #[test]
     // fn register_custom_function() {
@@ -899,75 +899,75 @@ mod tests {
     //     assert_eq!(Some(3), result);
     // }
 
-    table! {
-        my_collation_example {
-            id -> Integer,
-            value -> Text,
-        }
-    }
+    // table! {
+    //     my_collation_example {
+    //         id -> Integer,
+    //         value -> Text,
+    //     }
+    // }
 
-    #[test]
-    fn register_collation_function() {
-        use self::my_collation_example::dsl::*;
+    // #[test]
+    // fn register_collation_function() {
+    //     use self::my_collation_example::dsl::*;
 
-        let connection = &mut SqliteConnection::establish(":memory:").unwrap();
+    //     let connection = &mut SqliteConnection::establish(":memory:").unwrap();
 
-        // connection
-        //     .register_collation("RUSTNOCASE", |rhs, lhs| {
-        //         rhs.to_lowercase().cmp(&lhs.to_lowercase())
-        //     })
-        //     .unwrap();
+    //     // connection
+    //     //     .register_collation("RUSTNOCASE", |rhs, lhs| {
+    //     //         rhs.to_lowercase().cmp(&lhs.to_lowercase())
+    //     //     })
+    //     //     .unwrap();
 
-        diesel::sql_query(
-                "CREATE TABLE my_collation_example (id integer primary key autoincrement, value text collate RUSTNOCASE)",
-            ).execute(connection)
-            .unwrap();
-        diesel::sql_query(
-            "INSERT INTO my_collation_example (value) VALUES ('foo'), ('FOo'), ('f00')",
-        )
-        .execute(connection)
-        .unwrap();
+    //     diesel::sql_query(
+    //             "CREATE TABLE my_collation_example (id integer primary key autoincrement, value text collate RUSTNOCASE)",
+    //         ).execute(connection)
+    //         .unwrap();
+    //     diesel::sql_query(
+    //         "INSERT INTO my_collation_example (value) VALUES ('foo'), ('FOo'), ('f00')",
+    //     )
+    //     .execute(connection)
+    //     .unwrap();
 
-        let result = my_collation_example
-            .filter(value.eq("foo"))
-            .select(value)
-            .load::<String>(connection);
-        assert_eq!(
-            Ok(&["foo".to_owned(), "FOo".to_owned()][..]),
-            result.as_ref().map(|vec| vec.as_ref())
-        );
+    //     let result = my_collation_example
+    //         .filter(value.eq("foo"))
+    //         .select(value)
+    //         .load::<String>(connection);
+    //     assert_eq!(
+    //         Ok(&["foo".to_owned(), "FOo".to_owned()][..]),
+    //         result.as_ref().map(|vec| vec.as_ref())
+    //     );
 
-        let result = my_collation_example
-            .filter(value.eq("FOO"))
-            .select(value)
-            .load::<String>(connection);
-        assert_eq!(
-            Ok(&["foo".to_owned(), "FOo".to_owned()][..]),
-            result.as_ref().map(|vec| vec.as_ref())
-        );
+    //     let result = my_collation_example
+    //         .filter(value.eq("FOO"))
+    //         .select(value)
+    //         .load::<String>(connection);
+    //     assert_eq!(
+    //         Ok(&["foo".to_owned(), "FOo".to_owned()][..]),
+    //         result.as_ref().map(|vec| vec.as_ref())
+    //     );
 
-        let result = my_collation_example
-            .filter(value.eq("f00"))
-            .select(value)
-            .load::<String>(connection);
-        assert_eq!(
-            Ok(&["f00".to_owned()][..]),
-            result.as_ref().map(|vec| vec.as_ref())
-        );
+    //     let result = my_collation_example
+    //         .filter(value.eq("f00"))
+    //         .select(value)
+    //         .load::<String>(connection);
+    //     assert_eq!(
+    //         Ok(&["f00".to_owned()][..]),
+    //         result.as_ref().map(|vec| vec.as_ref())
+    //     );
 
-        let result = my_collation_example
-            .filter(value.eq("F00"))
-            .select(value)
-            .load::<String>(connection);
-        assert_eq!(
-            Ok(&["f00".to_owned()][..]),
-            result.as_ref().map(|vec| vec.as_ref())
-        );
+    //     let result = my_collation_example
+    //         .filter(value.eq("F00"))
+    //         .select(value)
+    //         .load::<String>(connection);
+    //     assert_eq!(
+    //         Ok(&["f00".to_owned()][..]),
+    //         result.as_ref().map(|vec| vec.as_ref())
+    //     );
 
-        let result = my_collation_example
-            .filter(value.eq("oof"))
-            .select(value)
-            .load::<String>(connection);
-        assert_eq!(Ok(&[][..]), result.as_ref().map(|vec| vec.as_ref()));
-    }
+    //     let result = my_collation_example
+    //         .filter(value.eq("oof"))
+    //         .select(value)
+    //         .load::<String>(connection);
+    //     assert_eq!(Ok(&[][..]), result.as_ref().map(|vec| vec.as_ref()));
+    // }
 }

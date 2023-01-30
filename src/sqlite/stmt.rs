@@ -43,7 +43,7 @@ impl Statement {
         value: InternalSqliteBindValue<'_>,
         bind_index: i32,
     ) -> QueryResult<Option<NonNull<[u8]>>> {
-        let _result = ffi::bind_value(
+        ffi::bind_value(
             self.statement_id,
             InternalSqliteBindValue::to_ffi_struct(bind_index, value),
         );
@@ -80,7 +80,11 @@ fn last_error(connection_id: u64) -> Error {
     };
     DatabaseError(
         error_kind,
-        Box::new(sqlite_error.message.unwrap_or("Unknown error".to_string())),
+        Box::new(
+            sqlite_error
+                .message
+                .unwrap_or_else(|| "Unknown error".to_string()),
+        ),
     )
 }
 
