@@ -1,4 +1,3 @@
-// extern crate diesel_codegen;
 #[macro_use]
 extern crate diesel;
 extern crate lunatic_sqlite_api;
@@ -6,7 +5,6 @@ extern crate lunatic_sqlite_api;
 pub mod sqlite;
 
 pub use diesel::*;
-// pub use diesel_codegen;
 
 pub use sqlite::SqliteConnection;
 

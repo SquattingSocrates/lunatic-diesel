@@ -20,7 +20,7 @@ Steps to use this library:
 - install [lunatic](https://github.com/lunatic-solutions/lunatic)
 - install [diesel cli](https://github.com/diesel-rs/diesel/tree/master/diesel_cli) + the cli dependencies for your database of choice
 - create a new rust project
-- add [lunatic-sql](https://github.com/SquattingSocrates/lunatic-sql) as dependency, but use it under the name of diesel like this: `diesel = {package = "lunatic-sql", version = "0.1.0"}` or else some of the features of diesel will not work properly
+- add [lunatic-sql](https://github.com/SquattingSocrates/lunatic-sql) as dependency, but use it under the name of `diesel` like this: `diesel = {package = "lunatic-sql", version = "0.1.0"}` or else some of the features of diesel will not work properly
 - create a migration with `diesel migration generate`
 - start building your app
 
