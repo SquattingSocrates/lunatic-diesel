@@ -2,7 +2,7 @@
 authors = ["Yuriy Voshchepynets <yuriy.voshchepynets@ckreator.com>"]
 description = "Diesel ORM bindings for lunatic"
 edition = "2021"
-name = "lunatic-sql"
+name = "lunatic-diesel"
 version = "0.1.0"
 
 [dependencies]
@@ -14,7 +14,7 @@ lunatic-sqlite-api = "0.13.0"
 
 [dev-dependencies]
 dotenvy = "0.15"
-lunatic-sql = {path = "./"}
+lunatic-diesel = {path = "./"}
 
 [package.metadata.docs.rs]
 all-features = true
