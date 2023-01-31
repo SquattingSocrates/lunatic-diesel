@@ -2,7 +2,10 @@
 authors = ["Yuriy Voshchepynets <yuriy.voshchepynets@ckreator.com>"]
 description = "Diesel ORM bindings for lunatic"
 edition = "2021"
+license = "Apache-2.0/MIT"
 name = "lunatic-diesel"
+readme = "README.md"
+repository = "https://github.com/SquattingSocrates/lunatic-diesel"
 version = "0.1.0"
 
 [dependencies]
