@@ -89,7 +89,7 @@ pub fn read_row(statement_id: u64) -> QueryResult<SqliteRow> {
         let ptr = sqlite_guest_bindings::read_row(statement_id, &mut len_ptr);
         let encoded_row = unroll_vec(ptr, len_ptr);
         bincode::deserialize(encoded_row.as_slice()).map_err(|e| {
-            eprintln!("Failed to deserialize sqlite row {:?}", e);
+            eprintln!("Failed to deserialize sqlite row {e:?}");
             Error::DeserializationError("Failed to deserialize sqlite row".into())
         })
     }

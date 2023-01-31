@@ -1,4 +1,4 @@
-// use lunatic_sqlite_api::{SqliteRow, SqliteValue};
+// use lunatic_sqlite_api::guest_api::{SqliteRow, SqliteValue};
 
 // use super::bind_collector::{InternalSqliteBindValue, SqliteBindValue};
 // use super::{RawConnection, Sqlite, SqliteAggregateFunction};
@@ -31,11 +31,11 @@
 //         ));
 //     }
 
-//     conn.register_sql_function(fn_name, fields_needed, deterministic, move |conn, args| {
-//         let args = build_sql_function_args::<ArgsSqlType, Args>(args)?;
+//     // conn.register_sql_function(fn_name, fields_needed, deterministic, move |conn, args| {
+//     //     let args = build_sql_function_args::<ArgsSqlType, Args>(args)?;
 
-//         Ok(f(conn, args))
-//     })?;
+//     //     Ok(f(conn, args))
+//     // })?;
 //     Ok(())
 // }
 

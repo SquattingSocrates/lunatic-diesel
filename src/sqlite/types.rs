@@ -205,7 +205,7 @@ impl ToSql<TimestamptzSqlite, Sqlite> for String {
 impl FromSql<Numeric, Sqlite> for BigDecimal {
     fn from_sql(bytes: &SqliteValue) -> deserialize::Result<Self> {
         let x = <f64 as FromSql<Double, Sqlite>>::from_sql(bytes)?;
-        BigDecimal::from_f64(x).ok_or_else(|| format!("{} is not valid decimal number ", x).into())
+        BigDecimal::from_f64(x).ok_or_else(|| format!("{x} is not valid decimal number ").into())
     }
 }
 

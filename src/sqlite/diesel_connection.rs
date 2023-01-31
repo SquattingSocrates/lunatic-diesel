@@ -400,7 +400,7 @@ impl<'stmt, 'query> Iterator for StatementIterator<'stmt, 'query> {
                 Some(
                     host_bindings::read_row(statement_id).map(|inner_row| SqliteRow {
                         inner_row,
-                        statement_id: statement_id as u64,
+                        statement_id,
                         field_names: host_bindings::column_names(statement_id).unwrap(),
                     }),
                 )
@@ -626,60 +626,60 @@ impl SqliteConnection {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
-    // use diesel::dsl::sql;
+    use super::*;
+    use diesel::dsl::sql;
     use diesel::prelude::*;
     use diesel::sql_types::Integer;
-    // use lunatic::test;
+    use lunatic::test;
 
-    // #[test]
-    // fn prepared_statements_are_cached_when_run() {
-    //     let connection = &mut SqliteConnection::establish(":memory:").unwrap();
-    //     let query = diesel::select(1.into_sql::<Integer>());
+    #[test]
+    fn prepared_statements_are_cached_when_run() {
+        let connection = &mut SqliteConnection::establish(":memory:").unwrap();
+        let query = diesel::select(1.into_sql::<Integer>());
 
-    //     assert_eq!(Ok(1), query.get_result(connection));
-    //     assert_eq!(Ok(1), query.get_result(connection));
-    //     assert_eq!(1, connection.statement_cache.len());
-    // }
+        assert_eq!(Ok(1), query.get_result(connection));
+        assert_eq!(Ok(1), query.get_result(connection));
+        assert_eq!(1, connection.statement_cache.len());
+    }
 
-    // #[test]
-    // fn sql_literal_nodes_are_not_cached() {
-    //     let connection = &mut SqliteConnection::establish(":memory:").unwrap();
-    //     let query = diesel::select(sql::<Integer>("1"));
+    #[test]
+    fn sql_literal_nodes_are_not_cached() {
+        let connection = &mut SqliteConnection::establish(":memory:").unwrap();
+        let query = diesel::select(sql::<Integer>("1"));
 
-    //     assert_eq!(Ok(1), query.get_result(connection));
-    //     assert_eq!(0, connection.statement_cache.len());
-    // }
+        assert_eq!(Ok(1), query.get_result(connection));
+        assert_eq!(0, connection.statement_cache.len());
+    }
 
-    // #[test]
-    // fn queries_containing_sql_literal_nodes_are_not_cached() {
-    //     let connection = &mut SqliteConnection::establish(":memory:").unwrap();
-    //     let one_as_expr = 1.into_sql::<Integer>();
-    //     let query = diesel::select(one_as_expr.eq(sql::<Integer>("1")));
+    #[test]
+    fn queries_containing_sql_literal_nodes_are_not_cached() {
+        let connection = &mut SqliteConnection::establish(":memory:").unwrap();
+        let one_as_expr = 1.into_sql::<Integer>();
+        let query = diesel::select(one_as_expr.eq(sql::<Integer>("1")));
 
-    //     assert_eq!(Ok(true), query.get_result(connection));
-    //     assert_eq!(0, connection.statement_cache.len());
-    // }
+        assert_eq!(Ok(true), query.get_result(connection));
+        assert_eq!(0, connection.statement_cache.len());
+    }
 
-    // #[test]
-    // fn queries_containing_in_with_vec_are_not_cached() {
-    //     let connection = &mut SqliteConnection::establish(":memory:").unwrap();
-    //     let one_as_expr = 1.into_sql::<Integer>();
-    //     let query = diesel::select(one_as_expr.eq_any(vec![1, 2, 3]));
+    #[test]
+    fn queries_containing_in_with_vec_are_not_cached() {
+        let connection = &mut SqliteConnection::establish(":memory:").unwrap();
+        let one_as_expr = 1.into_sql::<Integer>();
+        let query = diesel::select(one_as_expr.eq_any(vec![1, 2, 3]));
 
-    //     assert_eq!(Ok(true), query.get_result(connection));
-    //     assert_eq!(0, connection.statement_cache.len());
-    // }
+        assert_eq!(Ok(true), query.get_result(connection));
+        assert_eq!(0, connection.statement_cache.len());
+    }
 
-    // #[test]
-    // fn queries_containing_in_with_subselect_are_cached() {
-    //     let connection = &mut SqliteConnection::establish(":memory:").unwrap();
-    //     let one_as_expr = 1.into_sql::<Integer>();
-    //     let query = diesel::select(one_as_expr.eq_any(diesel::select(one_as_expr)));
+    #[test]
+    fn queries_containing_in_with_subselect_are_cached() {
+        let connection = &mut SqliteConnection::establish(":memory:").unwrap();
+        let one_as_expr = 1.into_sql::<Integer>();
+        let query = diesel::select(one_as_expr.eq_any(diesel::select(one_as_expr)));
 
-    //     assert_eq!(Ok(true), query.get_result(connection));
-    //     assert_eq!(1, connection.statement_cache.len());
-    // }
+        assert_eq!(Ok(true), query.get_result(connection));
+        assert_eq!(1, connection.statement_cache.len());
+    }
 
     // use diesel::sql_types::Text;
     // sql_function!(fn fun_case(x: Text) -> Text);
@@ -707,7 +707,7 @@ mod tests {
     //     assert_eq!("fOoBaR", mapped_string);
     // }
 
-    sql_function!(fn my_add(x: Integer, y: Integer) -> Integer);
+    // sql_function!(fn my_add(x: Integer, y: Integer) -> Integer);
 
     // #[test]
     // fn register_multiarg_function() {
